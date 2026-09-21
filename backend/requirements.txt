@@ -1,0 +1,57 @@
+# ==============================================================================
+# EngiPath AI — Backend Requirements
+# ==============================================================================
+
+# --- Web Framework ---
+flask==3.1.1
+flask-cors==5.0.1
+flask-migrate==4.1.0
+flask-sqlalchemy==3.1.1
+
+# --- Database ---
+sqlalchemy==2.0.41
+alembic==1.16.1
+psycopg2-binary==2.9.10
+
+# --- Pydantic ---
+pydantic==2.10.6
+pydantic-settings==2.7.1
+
+# --- AI / Gemini (current SDK - NOT google-generativeai) ---
+google-genai>=1.10.0,<2.0.0
+langchain==0.3.25
+langchain-google-genai==2.1.4
+langchain-community==0.3.24
+langchain-core==0.3.61
+
+# --- HTTP & Scraping ---
+httpx==0.28.1
+beautifulsoup4==4.13.4
+trafilatura==2.0.0
+lxml==5.4.0
+lxml_html_clean>=0.1.1
+html2text==2025.4.15
+
+# --- Document Processing ---
+pymupdf==1.25.5
+python-docx==1.1.2
+
+# --- Utilities ---
+python-dotenv==1.1.0
+cachetools==5.5.2
+python-dateutil==2.9.0.post0
+tenacity==9.0.0
+
+# --- Swagger / OpenAPI ---
+flasgger==0.9.7.1
+
+# --- Server ---
+gunicorn==23.0.0
+
+# --- Testing ---
+pytest==8.3.5
+pytest-cov==6.1.0
+pytest-mock==3.14.0
+
+# --- Logging ---
+structlog==25.2.0

@@ -1,0 +1,3 @@
+# This directory stores user-uploaded resumes.
+# Files are deleted after analysis by default (DELETE_RESUME_AFTER_ANALYSIS=true).
+# Never commit actual files to version control.

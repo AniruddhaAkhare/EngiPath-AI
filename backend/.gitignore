@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+
+# Virtual environment
+venv/
+env/
+.env/
+
+# Secrets — NEVER commit these
+.env
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads (user files — never commit)
+uploads/*
+!uploads/.gitkeep
+uploads_test/
+
+# Logs
+*.log
+
+# Coverage
+.coverage
+htmlcov/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Migrations (keep the directory, ignore auto-generated files only if preferred)
+# migrations/
+
+# OS
+.DS_Store
+Thumbs.db
