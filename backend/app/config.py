@@ -29,11 +29,11 @@ class BaseConfig:
     # --- Gemini — STRICTLY SEPARATED ---
     # Classes module ONLY
     CLASSES_GEMINI_API_KEY: Optional[str] = os.getenv("CLASSES_GEMINI_API_KEY")
-    CLASSES_GEMINI_MODEL: str = os.getenv("CLASSES_GEMINI_MODEL", "gemini-2.5-flash")
+    CLASSES_GEMINI_MODEL: str = os.getenv("CLASSES_GEMINI_MODEL", "gemini-3.8-flash")
 
     # Internship + Resume module ONLY
     INTERNSHIP_GEMINI_API_KEY: Optional[str] = os.getenv("INTERNSHIP_GEMINI_API_KEY")
-    INTERNSHIP_GEMINI_MODEL: str = os.getenv("INTERNSHIP_GEMINI_MODEL", "gemini-flash-latest")
+    INTERNSHIP_GEMINI_MODEL: str = os.getenv("INTERNSHIP_GEMINI_MODEL", "gemini-3.8-flash")
 
     # --- Web Search ---
     SEARCH_API_KEY: Optional[str] = os.getenv("SEARCH_API_KEY")

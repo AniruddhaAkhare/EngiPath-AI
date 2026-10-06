@@ -10,7 +10,7 @@ def build_extraction_prompt(scraped_content: str, course: str, location: str) ->
     """Build the prompt to extract structured class listings from scraped web content."""
     return f"""You are an expert data extraction assistant for an educational platform.
 
-TASK: Extract ALL class/course/institute listings from the provided web content.
+TASK: Extract ALL private coaching class, training institute, and academy listings from the provided web content for the searched course and location.
 
 SEARCH CONTEXT:
 - Course searched: {course}
@@ -18,18 +18,20 @@ SEARCH CONTEXT:
 
 WEB CONTENT:
 ---
-{scraped_content[:6000]}
+{scraped_content[:20000]}
 ---
 
 INSTRUCTIONS:
-1. Extract every distinct class, course, or institute mentioned in the content.
-2. For each listing, fill in as many fields as possible from the actual content.
-3. If a field is NOT present in the content, use null — do NOT invent or guess values.
-4. NEVER hallucinate fees, addresses, phone numbers, or URLs that are not in the content.
-5. For source_url: use the URL where this information came from, if mentioned.
-6. For mode: use "online", "offline", or "hybrid" only.
-7. For confidence: estimate how confident you are this is a real, relevant listing (0.0–1.0).
-8. Remove duplicates — if the same institute appears multiple times, include it once with the best data.
+1. Extract EVERY distinct private coaching class, training institute, or academy mentioned in the content.
+2. IMPORTANT — DO NOT include universities, colleges, or degree-granting institutions (e.g., MIT, VIT, SPPU, any institution with "University", "College", "IIT", "NIT" in the name). Only include private coaching centers, training institutes, and academies.
+3. For each listing, fill in as many fields as possible from the actual content.
+4. If a field is NOT present in the content, use null — do NOT invent or guess values.
+5. NEVER hallucinate fees, addresses, phone numbers, or URLs that are not in the content.
+6. For source_url: use the URL where this information came from, if mentioned.
+7. For mode: use "online", "offline", or "hybrid" only.
+8. For confidence: estimate how confident you are this is a real, relevant listing (0.0–1.0).
+9. Remove duplicates — if the same institute appears multiple times, include it once with the best data.
+10. Aim to extract as many unique institutes as possible — do not stop at the first one found.
 
 RETURN FORMAT (JSON only, no markdown, no explanation):
 {{

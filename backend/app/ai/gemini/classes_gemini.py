@@ -65,6 +65,37 @@ def _clean_json_text(text: str) -> str:
     return clean
 
 
+# Static fallback list — used when dynamic discovery fails
+_CLASSES_FALLBACK_MODELS = [
+    "gemini-3.8-flash",
+    "gemini-flash-lite-latest",
+    "gemini-flash-latest",
+    "gemini-1.5-flash",
+]
+
+
+def _list_available_flash_models(client: genai.Client) -> list[str]:
+    """Fetch the live list of available Gemini Flash models from the API."""
+    try:
+        models = client.models.list()
+        names = []
+        for m in models:
+            name = getattr(m, "name", "") or ""
+            short = name.replace("models/", "")
+            # Only text-capable flash models — skip live, tts, cyber, imagen variants
+            if (
+                "flash" in short.lower()
+                and not any(x in short.lower() for x in ("live", "tts", "cyber", "imagen", "audio"))
+            ):
+                names.append(short)
+        if names:
+            logger.debug("ClassesGemini: discovered models from API: %s", names)
+            return names
+    except Exception as exc:
+        logger.debug("ClassesGemini: model discovery failed: %s", exc)
+    return _CLASSES_FALLBACK_MODELS
+
+
 def _generate_with_fallback(
     client: genai.Client,
     preferred_model: str,
@@ -73,33 +104,97 @@ def _generate_with_fallback(
 ) -> tuple[Optional[str], Optional[str]]:
     """
     Execute generation with multi-model fallback.
-    Tries preferred_model first, then supported fallback models.
+    - Retries 503 (high demand) up to 2 times with backoff before moving on.
+    - Falls back without thinking_config on 400 INVALID_ARGUMENT (lite models).
+    - Dynamically discovers available models so the list stays current.
     """
+    import time
+
+    discovered = _list_available_flash_models(client)
     candidate_models = [preferred_model]
-    for m in ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite"]:
+    for m in discovered:
         if m not in candidate_models:
             candidate_models.append(m)
 
     last_exc = None
     for model_name in candidate_models:
-        try:
-            logger.debug("ClassesGemini: generating with model=%s", model_name)
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt,
-                config=types.GenerateContentConfig(
-                    temperature=temperature,
-                    response_mime_type="application/json",
-                    thinking_config=types.ThinkingConfig(thinking_budget=0),
-                ),
-            )
-            raw = response.text
-            if raw and raw.strip():
-                return raw, model_name
-        except Exception as exc:
-            logger.warning("ClassesGemini model %s failed: %s; trying next fallback", model_name, exc)
-            last_exc = exc
-            continue
+        configs_to_try = [
+            types.GenerateContentConfig(
+                temperature=temperature,
+                response_mime_type="application/json",
+                thinking_config=types.ThinkingConfig(thinking_budget=0),
+            ),
+            types.GenerateContentConfig(
+                temperature=temperature,
+                response_mime_type="application/json",
+            ),
+        ]
+
+        for cfg_index, cfg in enumerate(configs_to_try):
+            max_retries = 2
+            for attempt in range(1, max_retries + 2):
+                try:
+                    logger.debug(
+                        "ClassesGemini: model=%s cfg=%d attempt=%d",
+                        model_name, cfg_index, attempt,
+                    )
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=prompt,
+                        config=cfg,
+                    )
+                    raw = response.text
+                    if raw and raw.strip():
+                        return raw, model_name
+                    break
+
+                except Exception as exc:
+                    err_str = str(exc)
+                    if "503" in err_str or "UNAVAILABLE" in err_str:
+                        if attempt <= max_retries:
+                            wait = attempt * 2
+                            logger.warning(
+                                "ClassesGemini: 503 on %s (attempt %d/%d), retrying in %ds",
+                                model_name, attempt, max_retries + 1, wait,
+                            )
+                            time.sleep(wait)
+                            continue
+                        logger.warning("ClassesGemini model %s failed after retries: %s", model_name, exc)
+                        last_exc = exc
+                        break
+
+                    elif "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                        import re as _re
+                        delay_match = _re.search(r"retryDelay.*?(\d+)s", err_str)
+                        wait = int(delay_match.group(1)) if delay_match else 30
+                        wait = min(wait, 35)
+                        if attempt <= max_retries:
+                            logger.warning(
+                                "ClassesGemini: 429 quota on %s, retrying in %ds",
+                                model_name, wait,
+                            )
+                            time.sleep(wait)
+                            continue
+                        logger.warning("ClassesGemini model %s quota exhausted, skipping: %s", model_name, exc)
+                        last_exc = exc
+                        break
+
+                    elif "400" in err_str or "INVALID_ARGUMENT" in err_str:
+                        if cfg_index == 0:
+                            logger.debug(
+                                "ClassesGemini: %s rejects thinking_config (400), retrying without it",
+                                model_name,
+                            )
+                            last_exc = exc
+                            break
+                        logger.warning("ClassesGemini model %s unsupported: %s", model_name, exc)
+                        last_exc = exc
+                        break
+
+                    else:
+                        logger.warning("ClassesGemini model %s failed: %s; trying next fallback", model_name, exc)
+                        last_exc = exc
+                        break
 
     if last_exc:
         logger.error("ClassesGemini: all models failed. Last error: %s", last_exc)

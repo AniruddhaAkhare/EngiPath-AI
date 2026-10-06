@@ -61,7 +61,7 @@ class ClassSearchService:
         logger.info("ClassSearchService: searching course=%r location=%r", course, location)
 
         # Step 1: Live web search
-        web_results = self.searcher.search_classes(course, location, max_results=15)
+        web_results = self.searcher.search_classes(course, location, max_results=20)
         urls = [r.url for r in web_results]
 
         if not urls:
@@ -69,7 +69,7 @@ class ClassSearchService:
             return self._build_response([], course, location, start_time, status="no_results")
 
         # Step 2: Scrape pages
-        combined_content = self.scraper.scrape_batch(urls, max_pages=6, delay_between=0.0)
+        combined_content = self.scraper.scrape_batch(urls, max_pages=10, delay_between=0.0)
 
         if not combined_content or len(combined_content.strip()) < 200:
             logger.warning("ClassSearchService: insufficient content scraped")
@@ -78,6 +78,9 @@ class ClassSearchService:
         # Step 3: Extract structured data via ClassesGemini
         raw_classes = ClassesGeminiService.extract_classes(combined_content, course, location)
         logger.info("ClassSearchService: Gemini extracted %d raw classes", len(raw_classes))
+
+        # Step 3.5: Filter out colleges/universities that slipped through
+        raw_classes = self._filter_colleges(raw_classes)
 
         # Step 4: Enrich with source URLs from search results
         raw_classes = self._enrich_with_source_urls(raw_classes, web_results)
@@ -97,6 +100,22 @@ class ClassSearchService:
 
         logger.info("ClassSearchService: returning %d results in %.0fms", len(saved), duration_ms)
         return self._build_response(saved, course, location, start_time)
+
+    def _filter_colleges(self, classes: list[dict]) -> list[dict]:
+        """Remove any colleges or universities that Gemini extracted despite instructions."""
+        COLLEGE_KEYWORDS = (
+            "university", "college", "iit", "nit", "iim", "iiser", "bits",
+            "deemed", "polytechnic", "school of engineering", "institute of technology",
+            "faculty of", "department of",
+        )
+        filtered = []
+        for cls in classes:
+            name = (cls.get("institute_name") or "").lower()
+            if any(kw in name for kw in COLLEGE_KEYWORDS):
+                logger.debug("Filtered out college/university: %r", cls.get("institute_name"))
+                continue
+            filtered.append(cls)
+        return filtered
 
     def _enrich_with_source_urls(self, classes: list[dict], web_results) -> list[dict]:
         """Associate source URLs from search results where not already present."""
